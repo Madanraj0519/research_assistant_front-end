@@ -1,0 +1,5 @@
+{
+  "name": "Research Assistant",
+  "description": "A modern Chrome extension interface for AI-powered research, text summarization, and note-taking using Gemini.",
+  "requestFramePermissions": []
+}
