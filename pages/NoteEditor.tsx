@@ -1,41 +1,88 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Tag } from 'lucide-react';
+import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { createNoteApi, getNoteByIdApi, updateNoteApi } from '../services/api/notesApi';
 
 const NoteEditorPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [tags, setTags] = useState<string[]>(['Research', 'AI']);
-  const [newTag, setNewTag] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  const isEditMode = id && id !== 'new';
+
+  // Fetch note data when editing
   useEffect(() => {
-    if (id && id !== 'new') {
-      // Load existing note
-      setTitle('Research Note Title');
-      setContent('Write your note content here...');
-    }
-  }, [id]);
+    if (isEditMode) {
+      const fetchNote = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const response = await getNoteByIdApi(Number(id));
+          setTitle(response.data.title);
+          setContent(response.data.content);
+        } catch (err: any) {
+          console.error('Error fetching note:', err);
+          const errorMessage = err?.response?.data?.message || 'Failed to load note. Please try again.';
+          setError(errorMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
 
-  const handleSave = () => {
-    if (!title.trim() && !content.trim()) return;
-    
+      fetchNote();
+    }
+  }, [id, isEditMode]);
+
+  const handleSave = async () => {
+    if (!title.trim() && !content.trim()) {
+      alert('Please enter a title or content');
+      return;
+    }
+
     const finalTitle = title.trim() || 'Untitled Note';
-    console.log('Saving note:', { id, title: finalTitle, content, tags });
-    navigate('/notes');
-  };
+    const finalContent = content.trim();
 
-  const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
-      setNewTag('');
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (isEditMode) {
+        // Update existing note
+        await updateNoteApi(Number(id), {
+          title: finalTitle,
+          content: finalContent
+        });
+      } else {
+        // Create new note
+        await createNoteApi({
+          title: finalTitle,
+          content: finalContent
+        });
+      }
+
+      // Navigate back to notes page
+      navigate('/notes');
+    } catch (err: any) {
+      console.error('Error saving note:', err);
+      const errorMessage = err?.response?.data?.message || 'Failed to save note. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+        <Loader2 className="w-8 h-8 animate-spin mb-2" />
+        <p>Loading note...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -47,16 +94,32 @@ const NoteEditorPage = () => {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-lg font-bold dark:text-white">
-          {id === 'new' ? 'New Note' : 'Edit Note'}
+          {isEditMode ? 'Edit Note' : 'New Note'}
         </h1>
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+          disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Save className="w-4 h-4" />
-          <span>Save</span>
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              <span>Save</span>
+            </>
+          )}
         </button>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       <input
         type="text"
@@ -66,55 +129,12 @@ const NoteEditorPage = () => {
         placeholder="Note Title"
       />
 
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <div
-            key={tag}
-            className="flex items-center gap-1 px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full text-sm"
-          >
-            <Tag className="w-3 h-3" />
-            <span>{tag}</span>
-            <button
-              onClick={() => removeTag(tag)}
-              className="ml-1 hover:text-primary-800 dark:hover:text-primary-300"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <div className="flex items-center">
-          <input
-            type="text"
-            value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && addTag()}
-            placeholder="Add tag..."
-            className="px-3 py-1 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-primary-500 text-sm w-24"
-          />
-        </div>
-      </div>
-
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className="w-full h-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+        className="w-full h-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
         placeholder="Start typing your note..."
       />
-
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-            <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">AI</span>
-          </div>
-          <span className="font-medium dark:text-white">AI Suggestions</span>
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          Consider adding more details about your research methodology and key findings.
-        </p>
-        <button className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
-          Apply suggestion →
-        </button>
-      </div>
     </div>
   );
 };

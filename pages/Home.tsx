@@ -3,6 +3,7 @@ import { Sparkles, Copy, FilePlus, Check, Link as LinkIcon, Search, ExternalLink
 import { useNavigate } from 'react-router-dom';
 
 import { useSummarize } from "../hooks/useSummarize"
+import { createNoteApi } from "../services/api/notesApi";
 
 const HomePage = () => {
   const [input, setInput] = useState('');
@@ -16,6 +17,8 @@ const HomePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [hasPendingContext, setHasPendingContext] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
   const [isListening, setIsListening] = useState(true);
@@ -33,7 +36,7 @@ const HomePage = () => {
   useEffect(() => {
     setIsClient(true);
     setWindowWidth(window.innerWidth);
-    
+
     // Set initial textarea height based on window height
     const calculateHeight = () => {
       const windowHeight = window.innerHeight;
@@ -41,10 +44,10 @@ const HomePage = () => {
       const height = windowHeight * (window.innerWidth < 640 ? 0.35 : 0.4);
       setTextareaHeight(`${Math.max(200, height)}px`);
     };
-    
+
     calculateHeight();
     window.addEventListener('resize', calculateHeight);
-    
+
     return () => window.removeEventListener('resize', calculateHeight);
   }, []);
 
@@ -55,7 +58,7 @@ const HomePage = () => {
       textareaRef.current.style.height = 'auto';
       // Set new height based on content, with a minimum
       const newHeight = Math.max(
-        parseFloat(textareaHeight), 
+        parseFloat(textareaHeight),
         textareaRef.current.scrollHeight
       );
       textareaRef.current.style.height = `${newHeight}px`;
@@ -65,15 +68,15 @@ const HomePage = () => {
   // Initialize and load pending context
   useEffect(() => {
     console.log("🏠 Home page loading - checking for pending context");
-    
+
     loadPendingContext();
-    
+
     // Set up listener for new selections
     startListeningForSelections();
-    
+
     // Set up storage change listener
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      const handleStorageChange : any = (
+      const handleStorageChange: any = (
         changes: { [key: string]: chrome.storage.StorageChange },
         namespace: "local" | "sync" | "managed"
       ) => {
@@ -82,9 +85,9 @@ const HomePage = () => {
           loadPendingContext();
         }
       };
-      
+
       chrome.storage.onChanged.addListener(handleStorageChange);
-      
+
       // Cleanup
       return () => {
         chrome.storage.onChanged.removeListener(handleStorageChange);
@@ -101,17 +104,17 @@ const HomePage = () => {
       try {
         const result = await chrome.storage.local.get(['pendingContext']);
         console.log("📦 Storage result:", result);
-        
+
         if (result.pendingContext) {
           console.log("✅ Found pending context:", {
             textLength: result.pendingContext.text?.length,
             source: result.pendingContext.sourceTitle,
             trigger: result.pendingContext.trigger
           });
-          
+
           setInput(result.pendingContext.text);
           setHasPendingContext(true);
-          
+
           // Set source info
           if (result.pendingContext.sourceTitle || result.pendingContext.sourceUrl) {
             setSourceInfo({
@@ -120,7 +123,7 @@ const HomePage = () => {
               trigger: result.pendingContext.trigger
             });
           }
-          
+
           // Clear the badge if it exists
           try {
             await chrome.action.setBadgeText({ text: "" });
@@ -158,7 +161,7 @@ const HomePage = () => {
   const toggleAutoSelection = () => {
     const newMode = !autoSelectionMode;
     setAutoSelectionMode(newMode);
-    
+
     if (newMode) {
       // If enabling, start listening
       startListeningForSelections();
@@ -184,14 +187,14 @@ const HomePage = () => {
       try {
         // Clear from storage
         await chrome.storage.local.remove(['pendingContext']);
-        
+
         // Also send message to background to clear badge
         await chrome.runtime.sendMessage({
           type: 'CLEAR_CONTEXT'
         });
-        
+
         console.log("🗑️ Context cleared from storage");
-        
+
         // Update local state
         setInput('');
         setHasPendingContext(false);
@@ -205,17 +208,17 @@ const HomePage = () => {
   const isMobile = isClient && windowWidth < 640;
 
   const handleSummarize = async () => {
-    
+
     if (!input.trim()) return;
-    
+
     setIsLoading(true);
     setSummary('');
     setSaved(false);
-    
+
     try {
       // Mock API call - replace with actual Gemini API
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       const response = await summarize(input);
 
       console.log("🤖 Summarization response:", response);
@@ -225,10 +228,10 @@ const HomePage = () => {
       } else {
         setSummary("No summary returned from the AI service.");
       }
-      
+
       // Clear context after summarizing
       await clearContextFromStorage();
-      
+
     } catch (err) {
       console.error(err);
       setSummary("An error occurred while communicating with the AI service. Please try again.");
@@ -245,12 +248,50 @@ const HomePage = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveNote = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    
-    // Navigate to notes page
-    navigate('/notes/new', { state: { summary } });
+  const handleSaveNote = async () => {
+    if (!summary.trim()) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      // Generate title from source info or timestamp
+      let title = '';
+      if (sourceInfo?.title) {
+        title = sourceInfo.title;
+      } else {
+        // Use timestamp as fallback
+        const now = new Date();
+        title = `Summary - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+      }
+
+      // Call API to save note
+      const response = await createNoteApi({
+        title: title,
+        content: summary
+      });
+
+      console.log('Note saved successfully:', response);
+
+      // Show success feedback
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+
+      // Navigate to notes page after a short delay
+      setTimeout(() => {
+        navigate('/notes');
+      }, 1000);
+
+    } catch (err: any) {
+      console.error('Error saving note:', err);
+      const errorMessage = err?.response?.data?.message || 'Failed to save note. Please try again.';
+      setSaveError(errorMessage);
+
+      // Clear error after 5 seconds
+      setTimeout(() => setSaveError(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const clearInput = () => {
@@ -259,7 +300,7 @@ const HomePage = () => {
     setHasPendingContext(false);
     setSourceInfo(null);
     clearContextFromStorage();
-    
+
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = textareaHeight;
@@ -296,8 +337,8 @@ const HomePage = () => {
           </div>
         </div>
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-          {hasPendingContext 
-            ? "Text selected on webpage will auto-appear here. Select more text to update." 
+          {hasPendingContext
+            ? "Text selected on webpage will auto-appear here. Select more text to update."
             : "Select text on any webpage or paste text below to get an AI-powered summary."}
         </p>
       </header>
@@ -313,17 +354,16 @@ const HomePage = () => {
           </div>
           <button
             onClick={toggleAutoSelection}
-            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              autoSelectionMode 
-                ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-            }`}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${autoSelectionMode
+              ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+              }`}
           >
             {autoSelectionMode ? 'Pause' : 'Resume'}
           </button>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          {autoSelectionMode 
+          {autoSelectionMode
             ? 'Text selection on webpages will automatically appear here'
             : 'Auto-selection paused. Select text and use the floating button or right-click menu.'}
         </p>
@@ -339,13 +379,13 @@ const HomePage = () => {
             </div>
           </div>
         )}
-        
+
         <div className="relative">
-          <textarea 
+          <textarea
             ref={textareaRef}
-            placeholder={autoSelectionMode 
-              ? "Select text on any webpage, or paste text here..." 
-              : "Paste text here or use right-click menu to summarize..."} 
+            placeholder={autoSelectionMode
+              ? "Select text on any webpage, or paste text here..."
+              : "Paste text here or use right-click menu to summarize..."}
             style={{
               minHeight: textareaHeight,
               height: textareaHeight
@@ -364,7 +404,7 @@ const HomePage = () => {
             </button>
           )}
         </div>
-        
+
         <div className="border-t border-gray-100 dark:border-gray-700 p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
             {input.length} characters • {Math.ceil(input.length / 5)} estimated words
@@ -376,14 +416,14 @@ const HomePage = () => {
             )}
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <button 
+            <button
               onClick={clearInput}
               className="flex-1 sm:flex-none px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
             >
               Clear
             </button>
-            <button 
-              onClick={handleSummarize} 
+            <button
+              onClick={handleSummarize}
               disabled={!input.trim() || isLoading}
               className="flex-1 sm:flex-none px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
             >
@@ -453,14 +493,14 @@ const HomePage = () => {
               AI Summary
             </h3>
             <div className="flex gap-1 sm:gap-2">
-              <button 
+              <button
                 onClick={handleCopy}
                 className="p-1 sm:p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-md transition-colors"
                 title="Copy to clipboard"
               >
                 {copied ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : <Copy className="w-3 h-3 sm:w-4 sm:h-4" />}
               </button>
-              <button 
+              <button
                 onClick={handleSaveNote}
                 className="p-1 sm:p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-md transition-colors"
                 title="Save as Note"
@@ -469,6 +509,11 @@ const HomePage = () => {
               </button>
             </div>
           </div>
+          {saveError && (
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
+              {saveError}
+            </div>
+          )}
           <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-xs sm:text-sm max-h-96 overflow-y-auto">
             <p className="whitespace-pre-wrap">{summary}</p>
           </div>
@@ -493,10 +538,15 @@ const HomePage = () => {
         <div className="flex gap-2">
           <button
             onClick={handleSaveNote}
-            className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-1"
+            disabled={isSaving}
+            className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FilePlus className="w-4 h-4" />
-            Save Note
+            {isSaving ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <FilePlus className="w-4 h-4" />
+            )}
+            {isSaving ? 'Saving...' : 'Save Note'}
           </button>
           <button
             onClick={handleCopy}
