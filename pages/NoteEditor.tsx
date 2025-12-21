@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { createNoteApi, getNoteByIdApi, updateNoteApi } from '../services/api/notesApi';
+import { useTheme } from '../App';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 
 const NoteEditorPage = () => {
   const { id } = useParams();
@@ -11,6 +13,8 @@ const NoteEditorPage = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+  const { isDark } = useTheme();
 
   const isEditMode = id && id !== 'new';
 
@@ -24,6 +28,7 @@ const NoteEditorPage = () => {
           const response = await getNoteByIdApi(Number(id));
           setTitle(response.data.title);
           setContent(response.data.content);
+          setActiveTab('preview'); // Default to preview for existing notes
         } catch (err: any) {
           console.error('Error fetching note:', err);
           const errorMessage = err?.response?.data?.message || 'Failed to load note. Please try again.';
@@ -129,12 +134,44 @@ const NoteEditorPage = () => {
         placeholder="Note Title"
       />
 
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="w-full h-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-        placeholder="Start typing your note..."
-      />
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab('write')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'write'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+        >
+          Write
+        </button>
+        <button
+          onClick={() => setActiveTab('preview')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'preview'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+        >
+          Preview
+        </button>
+      </div>
+
+      {activeTab === 'write' ? (
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          className="w-full h-[500px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-gray-900 dark:text-white"
+          placeholder="Start typing your note..."
+        />
+      ) : (
+        <div className="w-full min-h-[500px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-y-auto">
+          {content ? (
+            <MarkdownRenderer content={content} isDark={isDark} />
+          ) : (
+            <p className="text-gray-400 italic">No content to preview</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

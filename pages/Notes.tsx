@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Trash2, Edit2, Calendar, Loader2 } from 'lucide-react';
 import { getNotesByUserApi, deleteNoteApi } from '../services/api/notesApi';
 import { NoteData } from '../apiTypes/types';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import { useTheme } from '../App';
 
 const NotesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [notes, setNotes] = useState<NoteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isDark } = useTheme();
   const navigate = useNavigate();
 
   // Fetch notes on mount
@@ -148,9 +151,10 @@ const NotesPage = () => {
                 </div>
               </div>
 
-              <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2 leading-relaxed mb-3">
-                {note.content}
-              </p>
+
+              <div className="text-gray-500 dark:text-gray-400 text-sm line-clamp-3 leading-relaxed mb-3 pointer-events-none">
+                <MarkdownRenderer content={note.content} isDark={isDark} />
+              </div>
 
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <div className="flex items-center gap-1">

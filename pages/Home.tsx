@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 
 import { useSummarize } from "../hooks/useSummarize"
 import { createNoteApi } from "../services/api/notesApi";
+import { useTheme } from '../App';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import { generateTitleFromContent } from '../utils/text';
 
 const HomePage = () => {
   const [input, setInput] = useState('');
@@ -29,6 +32,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const refreshIntervalRef = useRef<number | any>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const { isDark } = useTheme();
 
   const { summarize, error } = useSummarize();
 
@@ -255,12 +259,16 @@ const HomePage = () => {
     setSaveError(null);
 
     try {
-      // Generate title from source info or timestamp
-      let title = '';
-      if (sourceInfo?.title) {
+      // Generate title from the summary response
+      let title = generateTitleFromContent(summary);
+
+      // If title generation failed or returned default, try source info
+      if ((title === 'Untitled Note' || !title) && sourceInfo?.title) {
         title = sourceInfo.title;
-      } else {
-        // Use timestamp as fallback
+      }
+
+      // If still no title (unlikely with timestamp fallback in utils), use timestamp
+      if (!title || title === 'Untitled Note') {
         const now = new Date();
         title = `Summary - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       }
@@ -514,8 +522,8 @@ const HomePage = () => {
               {saveError}
             </div>
           )}
-          <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-xs sm:text-sm max-h-96 overflow-y-auto">
-            <p className="whitespace-pre-wrap">{summary}</p>
+          <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-xs sm:text-sm max-h-[500px] overflow-y-auto pr-2">
+            <MarkdownRenderer content={summary} isDark={isDark} />
           </div>
 
 

@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import { Clock, Loader2, X } from 'lucide-react';
 import { getHistoryByUserIdApi } from '../services/api/historyApi';
 import { HistoryData } from '../apiTypes/types';
+import { useTheme } from '../App';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import { generateTitleFromContent } from '../utils/text';
 
 const HistoryPage = () => {
   const [history, setHistory] = useState<HistoryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedHistory, setSelectedHistory] = useState<HistoryData | null>(null);
+  const { isDark } = useTheme();
 
   // Fetch history on mount
   useEffect(() => {
@@ -101,6 +105,10 @@ const HistoryPage = () => {
                   </span>
                 </div>
 
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-1">
+                  {generateTitleFromContent(item.result)}
+                </h3>
+
                 <div className="space-y-3">
                   <div>
                     <h4 className="text-xs uppercase tracking-wider text-gray-400 mb-1">Prompt</h4>
@@ -109,7 +117,9 @@ const HistoryPage = () => {
 
                   <div className="pl-3 border-l-2 border-primary-500">
                     <h4 className="text-xs uppercase tracking-wider text-primary-600 dark:text-primary-400 mb-1">Result</h4>
-                    <p className="text-gray-800 dark:text-gray-200 text-sm line-clamp-4 whitespace-pre-wrap">{item.result}</p>
+                    <div className="text-gray-800 dark:text-gray-200 text-sm line-clamp-4">
+                      <MarkdownRenderer content={item.result} isDark={isDark} />
+                    </div>
                   </div>
                 </div>
 
@@ -167,8 +177,8 @@ const HistoryPage = () => {
 
               <div>
                 <h4 className="text-sm font-semibold text-primary-600 dark:text-primary-400 mb-2">Result</h4>
-                <div className="text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 p-3 rounded whitespace-pre-wrap">
-                  {selectedHistory.result}
+                <div className="text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 p-3 rounded">
+                  <MarkdownRenderer content={selectedHistory.result} isDark={isDark} />
                 </div>
               </div>
             </div>
