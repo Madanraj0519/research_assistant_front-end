@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import {NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Home, FileText, Clock, Settings as SettingsIcon, Menu, X, ExternalLink, Maximize2 } from 'lucide-react';
+import { getCookie } from '../../utils/cookie';
 
 // Navigation Components
 const NavItem = ({ to, icon: Icon, label, onClick }: { to: string; icon: any; label: string; onClick?: () => void }) => (
-  <NavLink 
-    to={to} 
+  <NavLink
+    to={to}
     onClick={onClick}
     className={({ isActive }) => `
       flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-all duration-200 flex-1 min-w-0
-      ${isActive 
-        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-semibold' 
+      ${isActive
+        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-semibold'
         : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'}
     `}
   >
@@ -40,10 +41,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   // Auth Redirect Check
   useEffect(() => {
-    const isAuth = localStorage.getItem('ra_auth');
+    const isAuth = getCookie('access_token');
+    console.log("Layout Auth Check - Path:", location.pathname, "IsAuthPage:", isAuthPage, "Token present:", !!isAuth);
     if (isAuth && isAuthPage) {
       navigate('/home', { replace: true });
     } else if (!isAuth && !isAuthPage) {
+      console.log("Layout Redirect - User not authenticated, redirecting to login");
       navigate('/');
     }
   }, [location.pathname, isAuthPage, navigate]);
@@ -68,7 +71,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Open in Full Window Button - Show on mobile only */}
             {isMobile && (
@@ -86,7 +89,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             )}
-            
+
             {/* Open in New Tab Button - Show on desktop */}
             {!isMobile && (
               <button
@@ -103,7 +106,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             )}
-            
+
             {/* Hamburger Menu - Show on mobile only */}
             {isMobile && (
               <button
@@ -148,12 +151,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-50"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
-      
+
       {/* Mobile Menu Panel */}
       <div className={`
         fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800
@@ -164,37 +167,37 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="mb-8">
             <h2 className="text-lg font-bold dark:text-white mb-6">Navigation</h2>
             <nav className="flex flex-col gap-2">
-              <NavItem 
-                to="/home" 
-                icon={Home} 
-                label="Home" 
+              <NavItem
+                to="/home"
+                icon={Home}
+                label="Home"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
-              <NavItem 
-                to="/notes" 
-                icon={FileText} 
-                label="Notes" 
+              <NavItem
+                to="/notes"
+                icon={FileText}
+                label="Notes"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
-              <NavItem 
-                to="/history" 
-                icon={Clock} 
-                label="History" 
+              <NavItem
+                to="/history"
+                icon={Clock}
+                label="History"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
-              <NavItem 
-                to="/settings" 
-                icon={SettingsIcon} 
-                label="Settings" 
+              <NavItem
+                to="/settings"
+                icon={SettingsIcon}
+                label="Settings"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
             </nav>
           </div>
-          
+
           <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
             <h3 className="text-sm font-medium dark:text-gray-300 mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              <button 
+              <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
                   navigate('/notes/new');

@@ -30,7 +30,7 @@ const HomePage = () => {
   const refreshIntervalRef = useRef<number | any>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const { summarize, loading, error } = useSummarize();
+  const { summarize, error } = useSummarize();
 
   // Set isClient to true on component mount
   useEffect(() => {

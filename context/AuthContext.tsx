@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { LoginPayload, RegisterPayload, user } from '../apiTypes/types';
 import { loginApi, registerApi, logoutApi } from '../services/api/authApi';
 import { getUser } from '../services/api/userApi';
+import { setCookie, getCookie, deleteCookie } from '../utils/cookie';
 
 interface AuthContextType {
     user: user | null;
@@ -26,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadUser = useCallback(async () => {
         try {
             const userId = localStorage.getItem('user_id');
+            console.log("AuthContext loadUser - userId from storage:", userId);
             if (!userId) {
                 setLoading(false);
                 return;
@@ -37,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Error loading user:', err);
             setUser(null);
             // Clear invalid tokens
-            localStorage.removeItem('access_token');
+            deleteCookie('access_token');
             localStorage.removeItem('user_id');
             localStorage.removeItem('ra_auth');
         } finally {
@@ -47,7 +49,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Load user on mount
     useEffect(() => {
-        const token = localStorage.getItem('access_token');
+        const token = getCookie('access_token');
+        console.log("AuthContext Mount - Token present:", !!token);
         if (token) {
             loadUser();
         } else {
@@ -64,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Store authentication data
             localStorage.setItem('ra_auth', 'true');
-            localStorage.setItem('access_token', response.data.token);
+            setCookie('access_token', response.data.token, 7);
             localStorage.setItem('user_id', response.data.id.toString());
 
             // Set user in context
@@ -110,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Clear all authentication data
             localStorage.removeItem('ra_auth');
-            localStorage.removeItem('access_token');
+            deleteCookie('access_token');
             localStorage.removeItem('user_id');
 
             // Clear user from context

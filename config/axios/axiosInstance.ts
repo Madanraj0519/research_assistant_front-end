@@ -1,5 +1,6 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from "axios";
 import { BASE_URL } from "../constant/baseUrl";
+import { getCookie, deleteCookie } from "../../utils/cookie";
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -10,10 +11,11 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem("access_token");
+    const token = getCookie("access_token");
+    console.log("Axios Request Interceptor - URL:", config.url, "Token present:", !!token);
     if (token) {
       config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
@@ -25,10 +27,10 @@ axiosInstance.interceptors.response.use(
   (error: AxiosError) => {
     // Handle authentication failures (401) and forbidden access (403)
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      console.log("Authentication failed -> Logging out user");
+      console.log("Authentication failed - Status:", error.response.status, "URL:", error.config?.url, "-> Logging out user");
 
       // Clear all authentication data
-      localStorage.removeItem("access_token");
+      deleteCookie("access_token");
       localStorage.removeItem("user_id");
       localStorage.removeItem("ra_auth");
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, Loader2, X } from 'lucide-react';
 import { getHistoryByUserIdApi } from '../services/api/historyApi';
 import { HistoryData } from '../apiTypes/types';
